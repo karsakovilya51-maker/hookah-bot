@@ -1,6 +1,7 @@
 import os
 import asyncio
 import logging
+import signal
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart, CommandObject
@@ -8,6 +9,11 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQu
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
+
+# ==========================================
+# ИГНОРИРУЕМ SIGHUP ДЛЯ RENDER
+# ==========================================
+signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
 # ==========================================
 # НАСТРОЙКИ И ТОКЕН
@@ -103,6 +109,8 @@ def get_confirm_keyboard():
 # ==========================================
 @dp.message(CommandStart())
 async def cmd_start(message: Message, command: CommandObject, state: FSMContext):
+    logging.info(f"Команда /start от {message.from_user.id}")
+    
     args = command.args
     if args:
         table_num = args.replace("table_", "")
@@ -123,26 +131,35 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
 
 @dp.callback_query(F.data.startswith("type:"))
 async def process_type(callback: CallbackQuery, state: FSMContext):
-    type_key = callback.data.split(":")[1]
-    hookah_data = HOOKAH_TYPES.get(type_key)
-    
-    await state.update_data(
-        type_key=type_key,
-        type_title=hookah_data["title"],
-        price=hookah_data["price"]
-    )
-    
-    data = await state.get_data()
-    table_str = data.get("table", "Не определен (запуск без QR)")
+    try:
+        type_key = callback.data.split(":")[1]
+        hookah_data = HOOKAH_TYPES.get(type_key)
+        
+        if not hookah_data:
+            await callback.answer("❌ Такой тип кальяна не найден", show_alert=True)
+            return
+        
+        await state.update_data(
+            type_key=type_key,
+            type_title=hookah_data["title"],
+            price=hookah_data["price"]
+        )
+        
+        data = await state.get_data()
+        table_str = data.get("table", "Не определен (запуск без QR)")
 
-    await callback.message.edit_text(
-        f"📌 <b>Стол:</b> {table_str}\n"
-        f"💨 <b>Выбрано:</b> {hookah_data['title']} ({hookah_data['price']} ₽)\n\n"
-        "<b>Шаг 2 из 3:</b> Выберите желаемую <b>крепость</b>:",
-        reply_markup=get_strength_keyboard(),
-        parse_mode="HTML"
-    )
-    await state.set_state(OrderHookah.choosing_strength)
+        await callback.message.edit_text(
+            f"📌 <b>Стол:</b> {table_str}\n"
+            f"💨 <b>Выбрано:</b> {hookah_data['title']} ({hookah_data['price']} ₽)\n\n"
+            "<b>Шаг 2 из 3:</b> Выберите желаемую <b>крепость</b>:",
+            reply_markup=get_strength_keyboard(),
+            parse_mode="HTML"
+        )
+        await state.set_state(OrderHookah.choosing_strength)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Ошибка в process_type: {e}")
+        await callback.answer("❌ Произошла ошибка, попробуйте снова", show_alert=True)
 
 @dp.callback_query(F.data == "back_to_type")
 async def back_to_type(callback: CallbackQuery, state: FSMContext):
@@ -156,24 +173,34 @@ async def back_to_type(callback: CallbackQuery, state: FSMContext):
         parse_mode="HTML"
     )
     await state.set_state(OrderHookah.choosing_type)
+    await callback.answer()
 
 @dp.callback_query(F.data.startswith("strength:"))
 async def process_strength(callback: CallbackQuery, state: FSMContext):
-    strength_key = callback.data.split(":")[1]
-    strength_name = STRENGTH_OPTIONS.get(strength_key)
-    
-    await state.update_data(strength=strength_name)
-    data = await state.get_data()
-    table_str = data.get("table", "Не определен (запуск без QR)")
+    try:
+        strength_key = callback.data.split(":")[1]
+        strength_name = STRENGTH_OPTIONS.get(strength_key)
+        
+        if not strength_name:
+            await callback.answer("❌ Неверная опция", show_alert=True)
+            return
+        
+        await state.update_data(strength=strength_name)
+        data = await state.get_data()
+        table_str = data.get("table", "Не определен (запуск без QR)")
 
-    await callback.message.edit_text(
-        f"📌 <b>Стол:</b> {table_str}\n"
-        f"⚡️ <b>Крепость:</b> {strength_name}\n\n"
-        "<b>Шаг 3 из 3:</b> Выберите желаемый <b>профиль вкуса</b>:",
-        reply_markup=get_flavor_keyboard(),
-        parse_mode="HTML"
-    )
-    await state.set_state(OrderHookah.choosing_flavor)
+        await callback.message.edit_text(
+            f"📌 <b>Стол:</b> {table_str}\n"
+            f"⚡️ <b>Крепость:</b> {strength_name}\n\n"
+            "<b>Шаг 3 из 3:</b> Выберите желаемый <b>профиль вкуса</b>:",
+            reply_markup=get_flavor_keyboard(),
+            parse_mode="HTML"
+        )
+        await state.set_state(OrderHookah.choosing_flavor)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Ошибка в process_strength: {e}")
+        await callback.answer("❌ Произошла ошибка", show_alert=True)
 
 @dp.callback_query(F.data == "back_to_strength")
 async def back_to_strength(callback: CallbackQuery, state: FSMContext):
@@ -188,14 +215,20 @@ async def back_to_strength(callback: CallbackQuery, state: FSMContext):
         parse_mode="HTML"
     )
     await state.set_state(OrderHookah.choosing_strength)
+    await callback.answer()
 
 @dp.callback_query(F.data.startswith("flavor:"))
 async def process_flavor(callback: CallbackQuery, state: FSMContext):
-    flavor = callback.data.split(":", 1)[1]
-    await state.update_data(flavor=flavor)
-    await show_summary(callback, state)
+    try:
+        flavor = callback.data.split(":", 1)[1]
+        await state.update_data(flavor=flavor)
+        await show_summary(callback, state)
+        await callback.answer()
+    except Exception as e:
+        logging.error(f"Ошибка в process_flavor: {e}")
+        await callback.answer("❌ Произошла ошибка", show_alert=True)
 
-async def show_summary(event: types.TelegramObject, state: FSMContext):
+async def show_summary(event, state: FSMContext):
     data = await state.get_data()
     comment = data.get("comment", "Не указан")
     table_str = data.get("table", "Не определен (запуск без QR)")
@@ -223,6 +256,7 @@ async def ask_comment(callback: CallbackQuery, state: FSMContext):
         parse_mode="HTML"
     )
     await state.set_state(OrderHookah.waiting_comment)
+    await callback.answer()
 
 @dp.message(OrderHookah.waiting_comment)
 async def process_comment(message: Message, state: FSMContext):
@@ -231,36 +265,39 @@ async def process_comment(message: Message, state: FSMContext):
 
 @dp.callback_query(F.data == "confirm_order")
 async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
-    data = await state.get_data()
+    try:
+        data = await state.get_data()
 
-    table_str = data.get("table", "Не определен (запуск без QR)")
-    user_name = callback.from_user.full_name.replace("<", "&lt;").replace(">", "&gt;")
-    username = f"@{callback.from_user.username}" if callback.from_user.username else "без username"
-    comment = str(data.get('comment', 'Нет')).replace("<", "&lt;").replace(">", "&gt;")
+        table_str = data.get("table", "Не определен (запуск без QR)")
+        user_name = callback.from_user.full_name.replace("<", "&lt;").replace(">", "&gt;")
+        username = f"@{callback.from_user.username}" if callback.from_user.username else "без username"
+        comment = str(data.get('comment', 'Нет')).replace("<", "&lt;").replace(">", "&gt;")
 
-    await callback.message.edit_text(
-        "🎉 <b>Заказ принят!</b>\n\n"
-        "Кальянщик уже получил ваш заказ и приступил к забивке. Ожидайте!",
-        parse_mode="HTML"
-    )
-
-    if ADMIN_CHAT_ID:
-        admin_text = (
-            "🚨 <b>НОВЫЙ ЗАКАЗ КАЛЬЯНА!</b>\n\n"
-            f"📌 <b>Стол:</b> {table_str}\n"
-            f"💨 <b>Позиция:</b> {data.get('type_title')}\n"
-            f"💰 <b>Сумма:</b> <b>{data.get('price')} ₽</b>\n"
-            f"⚡️ <b>Крепость:</b> {data.get('strength')}\n"
-            f"🍓 <b>Вкусовая гамма:</b> {data.get('flavor')}\n"
-            f"📝 <b>Пожелания:</b> {comment}\n\n"
-            f"👤 <b>Гость:</b> {user_name} ({username})"
+        await callback.message.edit_text(
+            "🎉 <b>Заказ принят!</b>\n\n"
+            "Кальянщик уже получил ваш заказ и приступил к забивке. Ожидайте!",
+            parse_mode="HTML"
         )
-        try:
-            await bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_text, parse_mode="HTML")
-        except Exception as e:
-            logging.error(f"Ошибка отправки администратору: {e}")
 
-    await state.clear()
+        if ADMIN_CHAT_ID:
+            admin_text = (
+                "🚨 <b>НОВЫЙ ЗАКАЗ КАЛЬЯНА!</b>\n\n"
+                f"📌 <b>Стол:</b> {table_str}\n"
+                f"💨 <b>Позиция:</b> {data.get('type_title')}\n"
+                f"💰 <b>Сумма:</b> <b>{data.get('price')} ₽</b>\n"
+                f"⚡️ <b>Крепость:</b> {data.get('strength')}\n"
+                f"🍓 <b>Вкусовая гамма:</b> {data.get('flavor')}\n"
+                f"📝 <b>Пожелания:</b> {comment}\n\n"
+                f"👤 <b>Гость:</b> {user_name} ({username})"
+            )
+            await bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_text, parse_mode="HTML")
+
+        await state.clear()
+        await callback.answer("✅ Заказ подтвержден!")
+        
+    except Exception as e:
+        logging.error(f"Ошибка в confirm_order: {e}")
+        await callback.answer("❌ Ошибка при подтверждении заказа", show_alert=True)
 
 @dp.callback_query(F.data == "restart")
 async def restart_order(callback: CallbackQuery, state: FSMContext):
@@ -277,6 +314,7 @@ async def restart_order(callback: CallbackQuery, state: FSMContext):
     )
     await callback.message.edit_text(text, reply_markup=get_types_keyboard(), parse_mode="HTML")
     await state.set_state(OrderHookah.choosing_type)
+    await callback.answer()
 
 # ==========================================
 # ВЕБ-СЕРВЕР ДЛЯ RENDER
@@ -292,23 +330,34 @@ async def start_web_server():
     port = int(os.getenv("PORT", 8080))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
+    logging.info(f"Веб-сервер запущен на порту {port}")
 
 # ==========================================
-# БЕЗОПАСНЫЙ ЗАПУСК
+# ЗАПУСК
 # ==========================================
 async def main():
+    logging.info("🚀 Запуск бота...")
+    
     if not BOT_TOKEN:
-        logging.error("КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не найден в Environment Variables!")
+        logging.error("❌ BOT_TOKEN не найден!")
         return
 
-    # Запускаем ответы на проверку порта от Render
     await start_web_server()
 
     bot = Bot(token=BOT_TOKEN)
+    
     try:
+        me = await bot.get_me()
+        logging.info(f"✅ Бот запущен: @{me.username}")
+        
         await bot.delete_webhook(drop_pending_updates=True)
-        print("🚀 Бот запущен!")
-        await dp.start_polling(bot)
+        logging.info("🔄 Webhook удален")
+        
+        await dp.start_polling(bot, skip_updates=True)
+        
+    except Exception as e:
+        logging.error(f"❌ Ошибка: {e}")
+        raise
     finally:
         await bot.session.close()
 
