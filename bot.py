@@ -1,3 +1,4 @@
+import os
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, F, types
@@ -8,14 +9,13 @@ from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
 
 # ==========================================
-# НАСТРОЙКИ И ТОКЕН
+# НАСТРОЙКИ И ТОКЕН (из Environment Variables)
 # ==========================================
-BOT_TOKEN = "8806847684:AAEqBEY8p1U02TUnjJBRUY7pFRvdHdIuBCQ"
-ADMIN_CHAT_ID = -1004430566048  # ID чата персонала
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "-1004430566048"))
 
 logging.basicConfig(level=logging.INFO)
 
-bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 # ==========================================
@@ -102,7 +102,6 @@ def get_confirm_keyboard():
 # ==========================================
 @dp.message(CommandStart())
 async def cmd_start(message: Message, command: CommandObject, state: FSMContext):
-    # Определение стола из QR-кода (например, /start table_5 или /start 5)
     args = command.args
     if args:
         table_num = args.replace("table_", "")
@@ -193,9 +192,9 @@ async def back_to_strength(callback: CallbackQuery, state: FSMContext):
 async def process_flavor(callback: CallbackQuery, state: FSMContext):
     flavor = callback.data.split(":", 1)[1]
     await state.update_data(flavor=flavor)
-    await show_summary(callback.message, state)
+    await show_summary(callback, state)
 
-async def show_summary(message: Message, state: FSMContext):
+async def show_summary(event: types.TelegramObject, state: FSMContext):
     data = await state.get_data()
     comment = data.get("comment", "Не указан")
     table_str = data.get("table", "Не определен (запуск без QR)")
@@ -211,10 +210,10 @@ async def show_summary(message: Message, state: FSMContext):
         "Всё верно? Нажмите кнопку ниже для вызова кальянщика."
     )
 
-    if isinstance(message, CallbackQuery):
-        await message.message.edit_text(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
-    else:
-        await message.answer(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
+    if isinstance(event, CallbackQuery):
+        await event.message.edit_text(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
+    elif isinstance(event, Message):
+        await event.answer(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
 
 @dp.callback_query(F.data == "add_comment")
 async def ask_comment(callback: CallbackQuery, state: FSMContext):
@@ -230,7 +229,7 @@ async def process_comment(message: Message, state: FSMContext):
     await show_summary(message, state)
 
 @dp.callback_query(F.data == "confirm_order")
-async def confirm_order(callback: CallbackQuery, state: FSMContext):
+async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
     data = await state.get_data()
 
     table_str = data.get("table", "Не определен (запуск без QR)")
@@ -238,14 +237,12 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
     username = f"@{callback.from_user.username}" if callback.from_user.username else "без username"
     comment = str(data.get('comment', 'Нет')).replace("<", "&lt;").replace(">", "&gt;")
 
-    # Подтверждение гостю
     await callback.message.edit_text(
         "🎉 <b>Заказ принят!</b>\n\n"
         "Кальянщик уже получил ваш заказ и приступил к забивке. Ожидайте!",
         parse_mode="HTML"
     )
 
-    # Уведомление в рабочий чат
     if ADMIN_CHAT_ID:
         admin_text = (
             "🚨 <b>НОВЫЙ ЗАКАЗ КАЛЬЯНА!</b>\n\n"
@@ -281,11 +278,20 @@ async def restart_order(callback: CallbackQuery, state: FSMContext):
     await state.set_state(OrderHookah.choosing_type)
 
 # ==========================================
-# ЗАПУСК БОТА
+# БЕЗОПАСНЫЙ ЗАПУСК
 # ==========================================
 async def main():
-    print("🚀 Бот успешно запущен и готовит кальяны!")
-    await dp.start_polling(bot)
+    if not BOT_TOKEN:
+        logging.error("КРИТИЧЕСКАЯ ОШИБКА: BOT_TOKEN не найден в Environment Variables!")
+        return
+
+    bot = Bot(token=BOT_TOKEN)
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+        print("🚀 Бот запущен!")
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
     asyncio.run(main())
