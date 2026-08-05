@@ -2,6 +2,7 @@ import os
 import asyncio
 import logging
 import signal
+import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.filters import CommandStart, CommandObject
@@ -322,15 +323,40 @@ async def restart_order(callback: CallbackQuery, state: FSMContext):
 async def handle_ping(request):
     return web.Response(text="Bot is running!")
 
+async def handle_health(request):
+    """Endpoint для проверки здоровья"""
+    return web.Response(text="OK", status=200)
+
 async def start_web_server():
     app = web.Application()
     app.router.add_get("/", handle_ping)
+    app.router.add_get("/health", handle_health)
     runner = web.AppRunner(app)
     await runner.setup()
     port = int(os.getenv("PORT", 8080))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
     logging.info(f"Веб-сервер запущен на порту {port}")
+
+# ==========================================
+# KEEP-ALIVE ФУНКЦИЯ (ПИНГ)
+# ==========================================
+async def keep_alive():
+    """Пинговать сервер каждые 5 минут, чтобы он не засыпал"""
+    url = f"http://localhost:{os.getenv('PORT', 8080)}/health"
+    while True:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url) as response:
+                    if response.status == 200:
+                        logging.info("✅ Keep-alive ping успешен")
+                    else:
+                        logging.warning(f"⚠️ Keep-alive ping ответил {response.status}")
+        except Exception as e:
+            logging.error(f"❌ Ошибка keep-alive: {e}")
+        
+        # Ждем 5 минут перед следующим пингом
+        await asyncio.sleep(300)
 
 # ==========================================
 # ЗАПУСК
@@ -342,7 +368,12 @@ async def main():
         logging.error("❌ BOT_TOKEN не найден!")
         return
 
+    # Запускаем веб-сервер
     await start_web_server()
+    
+    # Запускаем keep-alive в фоновом режиме
+    asyncio.create_task(keep_alive())
+    logging.info("🔄 Keep-alive задача запущена (каждые 5 минут)")
 
     bot = Bot(token=BOT_TOKEN)
     
