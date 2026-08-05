@@ -12,7 +12,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder
 # -------------------------------------------------------------------
 # НАСТРОЙКИ
 # -------------------------------------------------------------------
-BOT_TOKEN = "8806847684:AAHviLND-TGVYyd-BXY830tY6_IvgdxkhTE"
+BOT_TOKEN = "8806847684:AAHvIlND-TGVYyd-BXY830tY6_IvgdxkhTE"
 ADMIN_CHAT_ID = -1004430566048
 
 logging.basicConfig(level=logging.INFO)
