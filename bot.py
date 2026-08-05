@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, CommandObject
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -11,7 +11,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 # НАСТРОЙКИ И ТОКЕН
 # ==========================================
 BOT_TOKEN = "8806847684:AAHvIlND-TGVYyd-BXY830tY6_IvgdxkhTE"
-ADMIN_CHAT_ID = -1004430566048  # ID чата персонала для уведомлений о заказах
+ADMIN_CHAT_ID = -1004430566048  # ID чата персонала
 
 logging.basicConfig(level=logging.INFO)
 
@@ -24,30 +24,26 @@ dp = Dispatcher(storage=MemoryStorage())
 HOOKAH_TYPES = {
     "clay": {
         "title": "💨 На глиняной чаше",
-        "price": 1400,
-        "desc": "Классическая подача"
+        "price": 1400
     },
     "grapefruit": {
         "title": "🍊 На грейпфруте",
-        "price": 1800,
-        "desc": "Сочная фруктовая чаша"
+        "price": 1800
     },
     "pineapple": {
         "title": "🍍 На ананасе",
-        "price": 2200,
-        "desc": "Эффектная фруктовая чаша"
+        "price": 2200
     },
     "cigar": {
         "title": "👑 Премиум (Сигарный табак Люкс)",
-        "price": 2600,
-        "desc": "Эксклюзивный сигарный лист"
+        "price": 2600
     }
 }
 
 STRENGTH_OPTIONS = {
-    "light": "🟢 Лёгкая (Light)",
-    "medium": "🟡 Средняя (Medium)",
-    "hard": "🔴 Крепкая (Hard / Strong)"
+    "light": "🟢 Легкий",
+    "medium": "🟡 Средний",
+    "hard": "🔴 Крепкий"
 }
 
 FLAVOR_PROFILES = [
@@ -105,13 +101,24 @@ def get_confirm_keyboard():
 # ХЕНДЛЕРЫ КОМАНД И ДИАЛОГА
 # ==========================================
 @dp.message(CommandStart())
-async def cmd_start(message: Message, state: FSMContext):
+async def cmd_start(message: Message, command: CommandObject, state: FSMContext):
+    # Определение стола из QR-кода (например, /start table_5 или /start 5)
+    args = command.args
+    if args:
+        table_num = args.replace("table_", "")
+        table_str = f"№ {table_num}"
+    else:
+        table_str = "Не определен (запуск без QR)"
+
     await state.clear()
+    await state.update_data(table=table_str)
+
     text = (
-        "👋 **Добро пожаловать в Lounge Bar!**\n\n"
-        "Выберите тип кальяна из нашего меню:"
+        "👋 <b>Приветствуем в нашем Lounge!</b>\n\n"
+        f"📌 <b>Ваш стол:</b> {table_str}\n\n"
+        "<b>Шаг 1 из 3:</b> Выберите тип кальяна:"
     )
-    await message.answer(text, reply_markup=get_types_keyboard(), parse_mode="Markdown")
+    await message.answer(text, reply_markup=get_types_keyboard(), parse_mode="HTML")
     await state.set_state(OrderHookah.choosing_type)
 
 @dp.callback_query(F.data.startswith("type:"))
@@ -125,19 +132,28 @@ async def process_type(callback: CallbackQuery, state: FSMContext):
         price=hookah_data["price"]
     )
     
+    data = await state.get_data()
+    table_str = data.get("table", "Не определен (запуск без QR)")
+
     await callback.message.edit_text(
-        f"Вы выбрали: **{hookah_data['title']}** ({hookah_data['price']} ₽)\n\n"
-        "Теперь выберите желаемую **крепость**:",
+        f"📌 <b>Стол:</b> {table_str}\n"
+        f"💨 <b>Выбрано:</b> {hookah_data['title']} ({hookah_data['price']} ₽)\n\n"
+        "<b>Шаг 2 из 3:</b> Выберите желаемую <b>крепость</b>:",
         reply_markup=get_strength_keyboard(),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
     await state.set_state(OrderHookah.choosing_strength)
 
 @dp.callback_query(F.data == "back_to_type")
 async def back_to_type(callback: CallbackQuery, state: FSMContext):
+    data = await state.get_data()
+    table_str = data.get("table", "Не определен (запуск без QR)")
+    
     await callback.message.edit_text(
-        "Выберите тип кальяна из нашего меню:",
-        reply_markup=get_types_keyboard()
+        f"📌 <b>Ваш стол:</b> {table_str}\n\n"
+        "<b>Шаг 1 из 3:</b> Выберите тип кальяна:",
+        reply_markup=get_types_keyboard(),
+        parse_mode="HTML"
     )
     await state.set_state(OrderHookah.choosing_type)
 
@@ -147,23 +163,29 @@ async def process_strength(callback: CallbackQuery, state: FSMContext):
     strength_name = STRENGTH_OPTIONS.get(strength_key)
     
     await state.update_data(strength=strength_name)
-    
+    data = await state.get_data()
+    table_str = data.get("table", "Не определен (запуск без QR)")
+
     await callback.message.edit_text(
-        f"Крепость: **{strength_name}**\n\n"
-        "Выберите желаемый **профиль вкуса**:",
+        f"📌 <b>Стол:</b> {table_str}\n"
+        f"⚡️ <b>Крепость:</b> {strength_name}\n\n"
+        "<b>Шаг 3 из 3:</b> Выберите желаемый <b>профиль вкуса</b>:",
         reply_markup=get_flavor_keyboard(),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
     await state.set_state(OrderHookah.choosing_flavor)
 
 @dp.callback_query(F.data == "back_to_strength")
 async def back_to_strength(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
+    table_str = data.get("table", "Не определен (запуск без QR)")
+    
     await callback.message.edit_text(
-        f"Вы выбрали: **{data.get('type_title')}** ({data.get('price')} ₽)\n\n"
-        "Выберите желаемую **крепость**:",
+        f"📌 <b>Стол:</b> {table_str}\n"
+        f"💨 <b>Позиция:</b> {data.get('type_title')} ({data.get('price')} ₽)\n\n"
+        "Выберите желаемую <b>крепость</b>:",
         reply_markup=get_strength_keyboard(),
-        parse_mode="Markdown"
+        parse_mode="HTML"
     )
     await state.set_state(OrderHookah.choosing_strength)
 
@@ -176,26 +198,29 @@ async def process_flavor(callback: CallbackQuery, state: FSMContext):
 async def show_summary(message: Message, state: FSMContext):
     data = await state.get_data()
     comment = data.get("comment", "Не указан")
-    
+    table_str = data.get("table", "Не определен (запуск без QR)")
+
     summary_text = (
-        "📋 **ВАШ ЗАКАЗ:**\n\n"
-        f"• **Позиция:** {data.get('type_title')}\n"
-        f"• **Крепость:** {data.get('strength')}\n"
-        f"• **Вкус:** {data.get('flavor')}\n"
-        f"• **Комментарий:** {comment}\n\n"
-        f"💰 **Итого к оплате:** `{data.get('price')} ₽`\n\n"
+        "📋 <b>ВАШ ЗАКАЗ:</b>\n\n"
+        f"📌 <b>Стол:</b> {table_str}\n"
+        f"💨 <b>Позиция:</b> {data.get('type_title')}\n"
+        f"💰 <b>Стоимость:</b> <b>{data.get('price')} ₽</b>\n"
+        f"⚡️ <b>Крепость:</b> {data.get('strength')}\n"
+        f"🍓 <b>Вкусовая гамма:</b> {data.get('flavor')}\n"
+        f"📝 <b>Комментарий:</b> {comment}\n\n"
         "Всё верно? Нажмите кнопку ниже для вызова кальянщика."
     )
-    
+
     if isinstance(message, CallbackQuery):
-        await message.message.edit_text(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="Markdown")
+        await message.message.edit_text(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
     else:
-        await message.answer(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="Markdown")
+        await message.answer(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
 
 @dp.callback_query(F.data == "add_comment")
 async def ask_comment(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
-        "Напишите в сообщении ваши пожелания (например: *'поменьше мяты'*, *'покислее'*, *'без холода'*):"
+        "Напишите в сообщении ваши пожелания (например: <i>'поменьше мяты'</i>, <i>'покислее'</i>):",
+        parse_mode="HTML"
     )
     await state.set_state(OrderHookah.waiting_comment)
 
@@ -207,38 +232,53 @@ async def process_comment(message: Message, state: FSMContext):
 @dp.callback_query(F.data == "confirm_order")
 async def confirm_order(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    
-    user_name = callback.from_user.full_name
+
+    table_str = data.get("table", "Не определен (запуск без QR)")
+    user_name = callback.from_user.full_name.replace("<", "&lt;").replace(">", "&gt;")
     username = f"@{callback.from_user.username}" if callback.from_user.username else "без username"
-    
-    # Отправка пользователю
+    comment = str(data.get('comment', 'Нет')).replace("<", "&lt;").replace(">", "&gt;")
+
+    # Подтверждение гостю
     await callback.message.edit_text(
-        "🎉 **Заказ принят!**\n\n"
-        "Кальянщик уже получил ваше пожелание и приступил к забивке. Ожидайте!",
-        parse_mode="Markdown"
+        "🎉 <b>Заказ принят!</b>\n\n"
+        "Кальянщик уже получил ваш заказ и приступил к забивке. Ожидайте!",
+        parse_mode="HTML"
     )
-    
-    # Отправка уведомления в рабочий чат
+
+    # Уведомление в рабочий чат
     if ADMIN_CHAT_ID:
         admin_text = (
-            "🔔 **НОВЫЙ ЗАКАЗ КАЛЬЯНА!**\n\n"
-            f"👤 Гость: {user_name} ({username})\n"
-            f"💨 Позиция: {data.get('type_title')}\n"
-            f"⚡️ Крепость: {data.get('strength')}\n"
-            f"🍓 Вкус: {data.get('flavor')}\n"
-            f"📝 Пожелания: {data.get('comment', 'Нет')}\n"
-            f"💰 Сумма: **{data.get('price')} ₽**"
+            "🚨 <b>НОВЫЙ ЗАКАЗ КАЛЬЯНА!</b>\n\n"
+            f"📌 <b>Стол:</b> {table_str}\n"
+            f"💨 <b>Позиция:</b> {data.get('type_title')}\n"
+            f"💰 <b>Сумма:</b> <b>{data.get('price')} ₽</b>\n"
+            f"⚡️ <b>Крепость:</b> {data.get('strength')}\n"
+            f"🍓 <b>Вкусовая гамма:</b> {data.get('flavor')}\n"
+            f"📝 <b>Пожелания:</b> {comment}\n\n"
+            f"👤 <b>Гость:</b> {user_name} ({username})"
         )
         try:
-            await bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_text, parse_mode="Markdown")
+            await bot.send_message(chat_id=ADMIN_CHAT_ID, text=admin_text, parse_mode="HTML")
         except Exception as e:
             logging.error(f"Ошибка отправки администратору: {e}")
-            
+
     await state.clear()
 
 @dp.callback_query(F.data == "restart")
 async def restart_order(callback: CallbackQuery, state: FSMContext):
-    await cmd_start(callback.message, state)
+    data = await state.get_data()
+    table_str = data.get("table", "Не определен (запуск без QR)")
+    
+    await state.clear()
+    await state.update_data(table=table_str)
+
+    text = (
+        "👋 <b>Приветствуем в нашем Lounge!</b>\n\n"
+        f"📌 <b>Ваш стол:</b> {table_str}\n\n"
+        "<b>Шаг 1 из 3:</b> Выберите тип кальяна:"
+    )
+    await callback.message.edit_text(text, reply_markup=get_types_keyboard(), parse_mode="HTML")
+    await state.set_state(OrderHookah.choosing_type)
 
 # ==========================================
 # ЗАПУСК БОТА
