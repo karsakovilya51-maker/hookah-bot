@@ -10,7 +10,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 # ==========================================
 # НАСТРОЙКИ И ТОКЕН
 # ==========================================
-BOT_TOKEN = "8806847684:AAHvIlND-TGVYyd-BXY830tY6_IvgdxkhTE"
+BOT_TOKEN = "8806847684:AAEqBEY8p1U02TUnjJBRUY7pFRvdHdIuBCQ"
 ADMIN_CHAT_ID = -1004430566048  # ID чата персонала
 
 logging.basicConfig(level=logging.INFO)
