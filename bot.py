@@ -5,8 +5,8 @@ import signal
 import aiohttp
 from aiohttp import web
 from aiogram import Bot, Dispatcher, F, types
-from aiogram.filters import CommandStart, CommandObject
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message
+from aiogram.filters import CommandStart, CommandObject, Command
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, Message, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -64,6 +64,35 @@ FLAVOR_PROFILES = [
 ]
 
 # ==========================================
+# КАТАЛОГ КАЛЬЯНОВ
+# ==========================================
+HOOKAH_CATALOG = """
+<b>📋 КАТАЛОГ КАЛЬЯНОВ</b>
+
+<b>🔥 Стандартные кальяны:</b>
+• <b>На глиняной чаше</b> — 1 400 ₽
+  Классический вариант, отличная тяга
+• <b>На грейпфруте</b> — 1 800 ₽
+  Сочный вкус с нотками цитруса
+• <b>На ананасе</b> — 2 200 ₽
+  Экзотика и сладость в каждом затяге
+
+<b>👑 Премиум линейка:</b>
+• <b>Сигарный табак Люкс</b> — 2 600 ₽
+  Благородный вкус для настоящих ценителей
+
+<b>🔥 Популярные вкусы:</b>
+• Цитрусовый микс
+• Ягодный букет
+• Тропический рай
+• Мятный бриз
+• Карамельный десерт
+• Спайси (пряный)
+
+<i>Для заказа нажмите /start и пройдите все шаги</i>
+"""
+
+# ==========================================
 # СОСТОЯНИЯ ЗАКАЗА (FSM)
 # ==========================================
 class OrderHookah(StatesGroup):
@@ -73,7 +102,23 @@ class OrderHookah(StatesGroup):
     waiting_comment = State()
 
 # ==========================================
-# КЛАВИАТУРЫ
+# ГЛАВНАЯ КЛАВИАТУРА (Reply)
+# ==========================================
+def get_main_keyboard():
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text="📋 Меню")],
+            [KeyboardButton(text="📚 Каталог кальянов")],
+            [KeyboardButton(text="🔄 Заменить угли")],
+            [KeyboardButton(text="❓ Помощь и контакты")]
+        ],
+        resize_keyboard=True,
+        input_field_placeholder="Выберите действие..."
+    )
+    return keyboard
+
+# ==========================================
+# КЛАВИАТУРЫ ДЛЯ ЗАКАЗА (Inline)
 # ==========================================
 def get_types_keyboard():
     buttons = []
@@ -129,6 +174,100 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
     )
     await message.answer(text, reply_markup=get_types_keyboard(), parse_mode="HTML")
     await state.set_state(OrderHookah.choosing_type)
+
+# ==========================================
+# НОВЫЕ ФУНКЦИИ
+# ==========================================
+
+@dp.message(F.text == "📚 Каталог кальянов")
+async def show_catalog(message: Message):
+    """Функция 'каталог кальянов' - показывает каталог"""
+    await message.answer(
+        HOOKAH_CATALOG,
+        parse_mode="HTML",
+        reply_markup=get_main_keyboard()
+    )
+
+@dp.message(F.text == "🔄 Заменить угли")
+async def replace_coals(message: Message):
+    """Функция 'заменить угли' - сообщает о вызове мастера"""
+    text = (
+        "🔥 <b>Кальянный мастер скоро к вам подойдет!</b>\n\n"
+        "Пожалуйста, ожидайте. Специалист заменит угли в ближайшее время.\n"
+        "⏱ Ориентировочное время ожидания: 3-5 минут."
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=get_main_keyboard())
+
+@dp.message(F.text == "❓ Помощь и контакты")
+async def help_and_contacts(message: Message):
+    """Функция 'помощь и контакты' - показывает контакты"""
+    text = (
+        "📞 <b>ПОМОЩЬ И КОНТАКТЫ</b>\n\n"
+        "📍 <b>Наш адрес:</b>\n"
+        "Лаунж бар Joker's Lounge\n"
+        "Ростов-на-Дону\n\n"
+        
+        "🗺 <b>Как добраться:</b>\n"
+        "https://yandex.ru/maps/org/jokers_lounge/139909063671/\n\n"
+        
+        "💬 <b>Жалобы, предложения и хвалебные отзывы:</b>\n"
+        "https://t.me/PravovedVayur\n\n"
+        
+        "🕐 <b>Время работы:</b>\n"
+        "Ежедневно с 12:00 до 06:00\n\n"
+        
+        "📋 <b>Доступные команды:</b>\n"
+        "/start - Перезапустить бота / Выбрать стол\n"
+        "/menu - Каталог кальянов и напитков (скоро)\n"
+        "/call - Заменить угли / Вызвать персонал\n"
+        "/help - Помощь и контакты заведения"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=get_main_keyboard())
+
+# ==========================================
+# КОМАНДЫ ДЛЯ БОТА
+# ==========================================
+
+@dp.message(Command("menu"))
+async def cmd_menu(message: Message):
+    """Команда /menu - показывает каталог"""
+    await show_catalog(message)
+
+@dp.message(Command("call"))
+async def cmd_call(message: Message):
+    """Команда /call - вызов персонала"""
+    await replace_coals(message)
+
+@dp.message(Command("help"))
+async def cmd_help(message: Message):
+    """Команда /help - помощь и контакты"""
+    await help_and_contacts(message)
+
+# ==========================================
+# ОБРАБОТЧИК ДЛЯ КНОПКИ "МЕНЮ"
+# ==========================================
+
+@dp.message(F.text == "📋 Меню")
+async def show_main_menu(message: Message, state: FSMContext):
+    """Кнопка 'Меню' - показывает главное меню с возможностью сделать заказ"""
+    # Проверяем, есть ли активный заказ
+    current_state = await state.get_state()
+    if current_state is not None:
+        await state.clear()
+        
+    text = (
+        "🍽 <b>ГЛАВНОЕ МЕНЮ</b>\n\n"
+        "Выберите действие с помощью кнопок ниже:\n\n"
+        "📚 <b>Каталог кальянов</b> - ознакомьтесь с ассортиментом\n"
+        "🔄 <b>Заменить угли</b> - вызвать кальянного мастера\n"
+        "❓ <b>Помощь и контакты</b> - информация о заведении\n\n"
+        "Чтобы сделать заказ, нажмите /start"
+    )
+    await message.answer(text, parse_mode="HTML", reply_markup=get_main_keyboard())
+
+# ==========================================
+# ОСТАЛЬНЫЕ ХЕНДЛЕРЫ (без изменений)
+# ==========================================
 
 @dp.callback_query(F.data.startswith("type:"))
 async def process_type(callback: CallbackQuery, state: FSMContext):
@@ -277,7 +416,8 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
         await callback.message.edit_text(
             "🎉 <b>Заказ принят!</b>\n\n"
             "Кальянщик уже получил ваш заказ и приступил к забивке. Ожидайте!",
-            parse_mode="HTML"
+            parse_mode="HTML",
+            reply_markup=get_main_keyboard()
         )
 
         if ADMIN_CHAT_ID:
@@ -380,6 +520,15 @@ async def main():
     try:
         me = await bot.get_me()
         logging.info(f"✅ Бот запущен: @{me.username}")
+        
+        # Устанавливаем команды для меню бота
+        commands = [
+            types.BotCommand(command="start", description="Перезапустить бота / Выбрать стол"),
+            types.BotCommand(command="menu", description="Каталог кальянов и напитков"),
+            types.BotCommand(command="call", description="Заменить угли / Вызвать персонал"),
+            types.BotCommand(command="help", description="Помощь и контакты заведения")
+        ]
+        await bot.set_my_commands(commands)
         
         await bot.delete_webhook(drop_pending_updates=True)
         logging.info("🔄 Webhook удален")
