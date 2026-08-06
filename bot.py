@@ -27,24 +27,115 @@ logging.basicConfig(level=logging.INFO)
 dp = Dispatcher(storage=MemoryStorage())
 
 # ==========================================
-# АССОРТИМЕНТ И ПРАЙС-ЛИСТ
+# РАСШИРЕННЫЙ АССОРТИМЕНТ КАЛЬЯНОВ
 # ==========================================
 HOOKAH_TYPES = {
+    # ===== БЮДЖЕТНЫЙ СЕГМЕНТ (1400-1600) =====
     "clay": {
-        "title": "💨 На глиняной чаше",
-        "price": 1400
+        "title": "🏺 На глиняной чаше",
+        "price": 1400,
+        "category": "Бюджетный",
+        "description": "Классика. Тайминг 40+ мин"
     },
+    "glass": {
+        "title": "🥃 На стеклянной чаше",
+        "price": 1500,
+        "category": "Бюджетный",
+        "description": "Чистый вкус без привкусов"
+    },
+    "classic_mix": {
+        "title": "🔥 Микс «Классика»",
+        "price": 1500,
+        "category": "Бюджетный",
+        "description": "Двойной яблоко + виноград"
+    },
+    "ceramic": {
+        "title": "🍒 На керамической чаше",
+        "price": 1600,
+        "category": "Бюджетный",
+        "description": "Равномерный прогрев"
+    },
+    "silicone": {
+        "title": "🌿 На силиконовой чаше",
+        "price": 1600,
+        "category": "Бюджетный",
+        "description": "Практичный и удобный"
+    },
+    "berry_mix": {
+        "title": "🍬 Микс «Ягодный рай»",
+        "price": 1600,
+        "category": "Бюджетный",
+        "description": "Клубника + малина + смородина"
+    },
+    
+    # ===== СРЕДНИЙ СЕГМЕНТ (1800-2400) =====
     "grapefruit": {
         "title": "🍊 На грейпфруте",
-        "price": 1800
+        "price": 1800,
+        "category": "Средний",
+        "description": "Сочный цитрусовый вкус"
+    },
+    "apple": {
+        "title": "🍎 На яблоке",
+        "price": 1900,
+        "category": "Средний",
+        "description": "Легкая кислинка"
     },
     "pineapple": {
         "title": "🍍 На ананасе",
-        "price": 2200
+        "price": 2200,
+        "category": "Средний",
+        "description": "Экзотическая сладость"
     },
-    "cigar": {
-        "title": "👑 Премиум (Сигарный табак Люкс)",
-        "price": 2600
+    "watermelon": {
+        "title": "🍉 Арбузный бум",
+        "price": 2400,
+        "category": "Средний",
+        "description": "Сочный, освежающий"
+    },
+    
+    # ===== ПРЕМИУМ СЕГМЕНТ (2500-2900) =====
+    "tropical": {
+        "title": "💎 Мастер-микс «Тропический»",
+        "price": 2500,
+        "category": "Премиум",
+        "description": "Манго + маракуйя + ананас"
+    },
+    "berry_bouquet": {
+        "title": "💎 Мастер-микс «Ягодный букет»",
+        "price": 2500,
+        "category": "Премиум",
+        "description": "Малина + вишня + гранат"
+    },
+    "dessert": {
+        "title": "💎 Мастер-микс «Десертный»",
+        "price": 2600,
+        "category": "Премиум",
+        "description": "Ваниль + чизкейк + шоколад"
+    },
+    "spicy_whiskey": {
+        "title": "💎 Мастер-микс «Пряный виски»",
+        "price": 2700,
+        "category": "Премиум",
+        "description": "Виски + корица + имбирь"
+    },
+    "satyr": {
+        "title": "🧨 Satyr Platinum",
+        "price": 2700,
+        "category": "Премиум",
+        "description": "Цитрус + корица + мускат"
+    },
+    "bonche": {
+        "title": "🧨 Bonche (сигарный лист)",
+        "price": 2800,
+        "category": "Премиум",
+        "description": "Благородный сигарный вкус"
+    },
+    "tangiers": {
+        "title": "🧨 Tangiers (американский)",
+        "price": 2900,
+        "category": "Премиум",
+        "description": "Элитный. Насыщенный."
     }
 }
 
@@ -64,32 +155,78 @@ FLAVOR_PROFILES = [
 ]
 
 # ==========================================
-# КАТАЛОГ КАЛЬЯНОВ
+# КАТАЛОГ КАЛЬЯНОВ (ЕДИНОЕ МЕНЮ)
 # ==========================================
 HOOKAH_CATALOG = """
-<b>📋 КАТАЛОГ КАЛЬЯНОВ</b>
+<b>📋 КАТАЛОГ КАЛЬЯНОВ</b>  JOKERS LOUNGE
 
-<b>🔥 Стандартные кальяны:</b>
-• <b>На глиняной чаше</b> — 1 400 ₽
-  Классический вариант, отличная тяга
-• <b>На грейпфруте</b> — 1 800 ₽
-  Сочный вкус с нотками цитруса
-• <b>На ананасе</b> — 2 200 ₽
-  Экзотика и сладость в каждом затяге
+━━━━━━━━━━━━━━━━━━━━━━━
 
-<b>👑 Премиум линейка:</b>
-• <b>Сигарный табак Люкс</b> — 2 600 ₽
-  Благородный вкус для настоящих ценителей
+<b>🟢 БЮДЖЕТНЫЙ СЕГМЕНТ (1 400 - 1 600 ₽)</b>
+─────────────
+🏺 <b>На глиняной чаше</b> — 1 400 ₽
+   Классика. Тайминг 40+ мин
 
-<b>🔥 Популярные вкусы:</b>
-• Цитрусовый микс
-• Ягодный букет
-• Тропический рай
-• Мятный бриз
-• Карамельный десерт
-• Спайси (пряный)
+🥃 <b>На стеклянной чаше</b> — 1 500 ₽
+   Чистый вкус без привкусов
 
-<i>Для заказа нажмите /start и пройдите все шаги</i>
+🔥 <b>Микс «Классика»</b> — 1 500 ₽
+   Двойной яблоко + виноград
+
+🍒 <b>На керамической чаше</b> — 1 600 ₽
+   Равномерный прогрев
+
+🌿 <b>На силиконовой чаше</b> — 1 600 ₽
+   Практичный и удобный
+
+🍬 <b>Микс «Ягодный рай»</b> — 1 600 ₽
+   Клубника + малина + смородина
+
+━━━━━━━━━━━━━━━━━━━━━━━
+
+<b>🟡 СРЕДНИЙ СЕГМЕНТ (1 800 - 2 400 ₽)</b>
+─────────────
+🍊 <b>На грейпфруте</b> — 1 800 ₽
+   Сочный цитрусовый вкус
+
+🍎 <b>На яблоке</b> — 1 900 ₽
+   Легкая кислинка
+
+🍍 <b>На ананасе</b> — 2 200 ₽
+   Экзотическая сладость
+
+🍉 <b>Арбузный бум</b> — 2 400 ₽
+   Сочный, освежающий
+
+━━━━━━━━━━━━━━━━━━━━━━━
+
+<b>🔴 ПРЕМИУМ-СЕГМЕНТ (2 500 - 2 900 ₽)</b>
+─────────────
+💎 <b>Мастер-микс «Тропический»</b> — 2 500 ₽
+   Манго + маракуйя + ананас
+
+💎 <b>Мастер-микс «Ягодный букет»</b> — 2 500 ₽
+   Малина + вишня + гранат
+
+💎 <b>Мастер-микс «Десертный»</b> — 2 600 ₽
+   Ваниль + чизкейк + шоколад
+
+💎 <b>Мастер-микс «Пряный виски»</b> — 2 700 ₽
+   Виски + корица + имбирь
+
+🧨 <b>Satyr Platinum</b> — 2 700 ₽
+   Цитрус + корица + мускат
+
+🧨 <b>Bonche (сигарный лист)</b> — 2 800 ₽
+   Благородный сигарный вкус
+
+🧨 <b>Tangiers (американский)</b> — 2 900 ₽
+   Элитный. Насыщенный.
+
+━━━━━━━━━━━━━━━━━━━━━━━
+
+<i>🔥 Для заказа нажмите /start 
+   и пройдите все шаги</i>
 """
 
 # ==========================================
@@ -122,9 +259,27 @@ def get_main_keyboard():
 # ==========================================
 def get_types_keyboard():
     buttons = []
-    for key, data in HOOKAH_TYPES.items():
-        text = f"{data['title']} — {data['price']} ₽"
-        buttons.append([InlineKeyboardButton(text=text, callback_data=f"type:{key}")])
+    
+    # Добавляем разделители для категорий
+    categories = ["Бюджетный", "Средний", "Премиум"]
+    category_emojis = {"Бюджетный": "🟢", "Средний": "🟡", "Премиум": "🔴"}
+    
+    for category in categories:
+        # Кнопка-заголовок категории (неактивная)
+        buttons.append([InlineKeyboardButton(
+            text=f"{category_emojis[category]} ━━━ {category} ━━━", 
+            callback_data=f"sep:{category}"
+        )])
+        
+        # Кнопки с позициями в категории
+        for key, data in HOOKAH_TYPES.items():
+            if data["category"] == category:
+                text = f"{data['title']} — {data['price']} ₽"
+                buttons.append([InlineKeyboardButton(
+                    text=text, 
+                    callback_data=f"type:{key}"
+                )])
+    
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 def get_strength_keyboard():
@@ -181,7 +336,7 @@ async def cmd_start(message: Message, command: CommandObject, state: FSMContext)
 
 @dp.message(F.text == "📚 Каталог кальянов")
 async def show_catalog(message: Message):
-    """Функция 'каталог кальянов' - показывает каталог"""
+    """Функция 'каталог кальянов' - показывает единый каталог"""
     await message.answer(
         HOOKAH_CATALOG,
         parse_mode="HTML",
@@ -249,8 +404,7 @@ async def cmd_help(message: Message):
 
 @dp.message(F.text == "📋 Меню")
 async def show_main_menu(message: Message, state: FSMContext):
-    """Кнопка 'Меню' - показывает главное меню с возможностью сделать заказ"""
-    # Проверяем, есть ли активный заказ
+    """Кнопка 'Меню' - показывает главное меню"""
     current_state = await state.get_state()
     if current_state is not None:
         await state.clear()
@@ -266,7 +420,16 @@ async def show_main_menu(message: Message, state: FSMContext):
     await message.answer(text, parse_mode="HTML", reply_markup=get_main_keyboard())
 
 # ==========================================
-# ОСТАЛЬНЫЕ ХЕНДЛЕРЫ (без изменений)
+# ОБРАБОТЧИК ДЛЯ РАЗДЕЛИТЕЛЕЙ (игнорируем)
+# ==========================================
+
+@dp.callback_query(F.data.startswith("sep:"))
+async def handle_separator(callback: CallbackQuery):
+    """Игнорируем нажатие на разделители"""
+    await callback.answer()
+
+# ==========================================
+# ОСТАЛЬНЫЕ ХЕНДЛЕРЫ
 # ==========================================
 
 @dp.callback_query(F.data.startswith("type:"))
@@ -288,9 +451,11 @@ async def process_type(callback: CallbackQuery, state: FSMContext):
         data = await state.get_data()
         table_str = data.get("table", "Не определен (запуск без QR)")
 
+        # Добавляем описание к выбранному кальяну
         await callback.message.edit_text(
             f"📌 <b>Стол:</b> {table_str}\n"
-            f"💨 <b>Выбрано:</b> {hookah_data['title']} ({hookah_data['price']} ₽)\n\n"
+            f"💨 <b>Выбрано:</b> {hookah_data['title']} ({hookah_data['price']} ₽)\n"
+            f"📝 <b>Описание:</b> {hookah_data['description']}\n\n"
             "<b>Шаг 2 из 3:</b> Выберите желаемую <b>крепость</b>:",
             reply_markup=get_strength_keyboard(),
             parse_mode="HTML"
@@ -331,6 +496,7 @@ async def process_strength(callback: CallbackQuery, state: FSMContext):
 
         await callback.message.edit_text(
             f"📌 <b>Стол:</b> {table_str}\n"
+            f"💨 <b>Позиция:</b> {data.get('type_title')} ({data.get('price')} ₽)\n"
             f"⚡️ <b>Крепость:</b> {strength_name}\n\n"
             "<b>Шаг 3 из 3:</b> Выберите желаемый <b>профиль вкуса</b>:",
             reply_markup=get_flavor_keyboard(),
@@ -392,7 +558,8 @@ async def show_summary(event, state: FSMContext):
 @dp.callback_query(F.data == "add_comment")
 async def ask_comment(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(
-        "Напишите в сообщении ваши пожелания (например: <i>'поменьше мяты'</i>, <i>'покислее'</i>):",
+        "📝 Напишите в сообщении ваши пожелания:\n"
+        "<i>Например: 'поменьше мяты', 'покислее', 'сделать покрепче'</i>",
         parse_mode="HTML"
     )
     await state.set_state(OrderHookah.waiting_comment)
@@ -415,7 +582,9 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
 
         await callback.message.edit_text(
             "🎉 <b>Заказ принят!</b>\n\n"
-            "Кальянщик уже получил ваш заказ и приступил к забивке. Ожидайте!",
+            "Кальянщик уже получил ваш заказ и приступил к забивке.\n"
+            "⏱ Ожидайте 7-10 минут.\n\n"
+            "А пока можете насладиться атмосферой нашего Lounge! 🎵",
             parse_mode="HTML",
             reply_markup=get_main_keyboard()
         )
@@ -495,7 +664,6 @@ async def keep_alive():
         except Exception as e:
             logging.error(f"❌ Ошибка keep-alive: {e}")
         
-        # Ждем 5 минут перед следующим пингом
         await asyncio.sleep(300)
 
 # ==========================================
@@ -508,10 +676,8 @@ async def main():
         logging.error("❌ BOT_TOKEN не найден!")
         return
 
-    # Запускаем веб-сервер
     await start_web_server()
     
-    # Запускаем keep-alive в фоновом режиме
     asyncio.create_task(keep_alive())
     logging.info("🔄 Keep-alive задача запущена (каждые 5 минут)")
 
@@ -521,7 +687,6 @@ async def main():
         me = await bot.get_me()
         logging.info(f"✅ Бот запущен: @{me.username}")
         
-        # Устанавливаем команды для меню бота
         commands = [
             types.BotCommand(command="start", description="Перезапустить бота / Выбрать стол"),
             types.BotCommand(command="menu", description="Каталог кальянов и напитков"),
