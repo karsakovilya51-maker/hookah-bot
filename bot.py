@@ -260,18 +260,15 @@ def get_main_keyboard():
 def get_types_keyboard():
     buttons = []
     
-    # Добавляем разделители для категорий
     categories = ["Бюджетный", "Средний", "Премиум"]
     category_emojis = {"Бюджетный": "🟢", "Средний": "🟡", "Премиум": "🔴"}
     
     for category in categories:
-        # Кнопка-заголовок категории (неактивная)
         buttons.append([InlineKeyboardButton(
             text=f"{category_emojis[category]} ━━━ {category} ━━━", 
             callback_data=f"sep:{category}"
         )])
         
-        # Кнопки с позициями в категории
         for key, data in HOOKAH_TYPES.items():
             if data["category"] == category:
                 text = f"{data['title']} — {data['price']} ₽"
@@ -429,7 +426,7 @@ async def handle_separator(callback: CallbackQuery):
     await callback.answer()
 
 # ==========================================
-# ОСТАЛЬНЫЕ ХЕНДЛЕРЫ
+# ОСНОВНЫЕ ХЕНДЛЕРЫ ЗАКАЗА
 # ==========================================
 
 @dp.callback_query(F.data.startswith("type:"))
@@ -451,7 +448,6 @@ async def process_type(callback: CallbackQuery, state: FSMContext):
         data = await state.get_data()
         table_str = data.get("table", "Не определен (запуск без QR)")
 
-        # Добавляем описание к выбранному кальяну
         await callback.message.edit_text(
             f"📌 <b>Стол:</b> {table_str}\n"
             f"💨 <b>Выбрано:</b> {hookah_data['title']} ({hookah_data['price']} ₽)\n"
@@ -551,9 +547,25 @@ async def show_summary(event, state: FSMContext):
     )
 
     if isinstance(event, CallbackQuery):
-        await event.message.edit_text(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
+        try:
+            await event.message.edit_text(
+                summary_text, 
+                reply_markup=get_confirm_keyboard(), 
+                parse_mode="HTML"
+            )
+        except Exception as e:
+            logging.warning(f"Не удалось отредактировать сообщение: {e}")
+            await event.message.answer(
+                summary_text, 
+                reply_markup=get_confirm_keyboard(), 
+                parse_mode="HTML"
+            )
     elif isinstance(event, Message):
-        await event.answer(summary_text, reply_markup=get_confirm_keyboard(), parse_mode="HTML")
+        await event.answer(
+            summary_text, 
+            reply_markup=get_confirm_keyboard(), 
+            parse_mode="HTML"
+        )
 
 @dp.callback_query(F.data == "add_comment")
 async def ask_comment(callback: CallbackQuery, state: FSMContext):
@@ -574,13 +586,19 @@ async def process_comment(message: Message, state: FSMContext):
 async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
     try:
         data = await state.get_data()
+        
+        # Проверяем наличие данных заказа
+        if not data.get('type_title'):
+            await callback.answer("❌ Заказ не найден. Нажмите /start", show_alert=True)
+            return
 
         table_str = data.get("table", "Не определен (запуск без QR)")
         user_name = callback.from_user.full_name.replace("<", "&lt;").replace(">", "&gt;")
         username = f"@{callback.from_user.username}" if callback.from_user.username else "без username"
         comment = str(data.get('comment', 'Нет')).replace("<", "&lt;").replace(">", "&gt;")
 
-        await callback.message.edit_text(
+        # Отправляем новое сообщение о принятии заказа
+        await callback.message.answer(
             "🎉 <b>Заказ принят!</b>\n\n"
             "Кальянщик уже получил ваш заказ и приступил к забивке.\n"
             "⏱ Ожидайте 7-10 минут.\n\n"
@@ -589,6 +607,13 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
             reply_markup=get_main_keyboard()
         )
 
+        # Удаляем сообщение с кнопками
+        try:
+            await callback.message.delete()
+        except Exception as e:
+            logging.warning(f"Не удалось удалить сообщение: {e}")
+
+        # Отправляем заказ администратору
         if ADMIN_CHAT_ID:
             admin_text = (
                 "🚨 <b>НОВЫЙ ЗАКАЗ КАЛЬЯНА!</b>\n\n"
@@ -607,6 +632,15 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext, bot: Bot):
         
     except Exception as e:
         logging.error(f"Ошибка в confirm_order: {e}")
+        try:
+            await callback.message.answer(
+                "❌ <b>Произошла ошибка при подтверждении заказа</b>\n\n"
+                "Пожалуйста, попробуйте еще раз или нажмите /start для нового заказа.",
+                parse_mode="HTML",
+                reply_markup=get_main_keyboard()
+            )
+        except:
+            pass
         await callback.answer("❌ Ошибка при подтверждении заказа", show_alert=True)
 
 @dp.callback_query(F.data == "restart")
